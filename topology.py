@@ -101,7 +101,7 @@ class TreeTopology(Topo):
 class CustomTopology(Topo):
     """自定义拓扑类"""
     
-    def __init__(self, topology_config, **params):
+    def __init__(self, topology_config=None, **params):
         """
         初始化自定义拓扑
         
@@ -110,32 +110,56 @@ class CustomTopology(Topo):
         """
         Topo.__init__(self, **params)
         
-        self.switches = {}
-        self.hosts = {}
-        self.links = topology_config.get('links', [])
+        switches = {}
+        hosts = {}
+        
+        # 如果没有提供配置，使用默认配置
+        if topology_config is None:
+            topology_config = {
+                'switches': ['s1', 's2', 's3', 's4'],
+                'hosts': [
+                    {'id': 'h1', 'switch': 's1', 'bw': 10},
+                    {'id': 'h2', 'switch': 's1', 'bw': 10},
+                    {'id': 'h3', 'switch': 's2', 'bw': 10},
+                    {'id': 'h4', 'switch': 's2', 'bw': 10},
+                    {'id': 'h5', 'switch': 's3', 'bw': 10},
+                    {'id': 'h6', 'switch': 's3', 'bw': 10},
+                    {'id': 'h7', 'switch': 's4', 'bw': 10},
+                    {'id': 'h8', 'switch': 's4', 'bw': 10}
+                ],
+                'links': [
+                    {'src': 's1', 'dst': 's2', 'bw': 20},
+                    {'src': 's2', 'dst': 's3', 'bw': 20},
+                    {'src': 's3', 'dst': 's4', 'bw': 20},
+                    {'src': 's1', 'dst': 's3', 'bw': 15},
+                    {'src': 's2', 'dst': 's4', 'bw': 15}
+                ]
+            }
+        
+        links = topology_config.get('links', [])
         
         # 创建交换机
         for switch_id in topology_config.get('switches', []):
             switch = self.addSwitch(switch_id, cls=OVSSwitch, protocols='OpenFlow13')
-            self.switches[switch_id] = switch
+            switches[switch_id] = switch
         
         # 创建主机
         for host_config in topology_config.get('hosts', []):
             host_id = host_config['id']
             host = self.addHost(host_id)
-            self.hosts[host_id] = host
+            hosts[host_id] = host
             
             # 连接主机到交换机
             switch_id = host_config['switch']
             port = host_config.get('port', 1)
-            self.addLink(host, self.switches[switch_id], bw=host_config.get('bw', 10))
+            self.addLink(host, switches[switch_id], bw=host_config.get('bw', 10))
         
         # 创建交换机间链路
-        for link in self.links:
+        for link in links:
             src_switch = link['src']
             dst_switch = link['dst']
             bw = link.get('bw', 20)
-            self.addLink(self.switches[src_switch], self.switches[dst_switch], bw=bw)
+            self.addLink(switches[src_switch], switches[dst_switch], bw=bw)
 
 
 class NetworkManager:
