@@ -232,7 +232,8 @@ class ONOSControllerClient:
         """
         try:
             url = f"{self.base_url}/onos/v1/flows/{device_id}"
-            response = self.session.get(url, headers=self.headers, timeout=10)
+            headers = {"Accept": "application/json"}
+            response = self.session.get(url, headers=headers, timeout=10)
             response.raise_for_status()
             
             flows_data = response.json()
@@ -255,7 +256,8 @@ class ONOSControllerClient:
         """
         try:
             url = f"{self.base_url}/onos/v1/flows/{device_id}/{flow_id}"
-            response = self.session.delete(url, headers=self.headers, timeout=10)
+            headers = {"Accept": "application/json"}
+            response = self.session.delete(url, headers=headers, timeout=10)
             response.raise_for_status()
             
             logger.info(f"设备 {device_id} 流表 {flow_id} 删除成功")
