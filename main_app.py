@@ -136,7 +136,7 @@ class SDNControllerApp:
                         len(self.topology_manager.devices),
                         len(self.topology_manager.hosts),
                         len(self.topology_manager.links),
-                        tuple(sorted(self.topology_manager.links))
+                        tuple(sorted((link['src']['device'], link['src']['port'], link['dst']['device'], link['dst']['port']) for link in self.topology_manager.links))
                     ))
                     
                     # 检查拓扑是否变化
