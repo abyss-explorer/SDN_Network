@@ -51,51 +51,30 @@ class LinearTopology(Topo):
 
 
 class TreeTopology(Topo):
-    """树形拓扑类"""
-    
     def __init__(self, depth=2, fanout=2, **params):
-        """
-        初始化树形拓扑
+        super().__init__(**params)
+        self.switch_counter = 1  # s1 is root
+        self.host_counter = 0
         
-        Args:
-            depth: 树的深度
-            fanout: 每个节点的分支因子
-        """
-        Topo.__init__(self, **params)
-        
-        # 创建根交换机
-        root_switch = self.addSwitch('s1', cls=OVSSwitch, protocols='OpenFlow13')
-        
-        # 递归创建树形结构
-        self._create_tree_level(root_switch, 1, depth, fanout)
+        root = self.addSwitch('s1', cls=OVSSwitch, protocols='OpenFlow13')
+        self._create_tree_level(root, 1, depth, fanout)
     
-    def _create_tree_level(self, parent_switch, level, max_depth, fanout):
-        """递归创建树的层级"""
+    def _create_tree_level(self, parent, level, max_depth, fanout):
         if level >= max_depth:
             return
         
-        switch_counter = getattr(self, '_switch_counter', 1)
-        host_counter = getattr(self, '_host_counter', 0)
-        
         for i in range(fanout):
-            switch_counter += 1
-            child_switch = self.addSwitch(f's{switch_counter}', cls=OVSSwitch, protocols='OpenFlow13')
+            self.switch_counter += 1
+            child = self.addSwitch(f's{self.switch_counter}', cls=OVSSwitch, protocols='OpenFlow13')
+            self.addLink(parent, child, bw=20)
             
-            # 连接父交换机和子交换机
-            self.addLink(parent_switch, child_switch, bw=20)
-            
-            # 在叶子节点添加主机
             if level == max_depth - 1:
-                for j in range(2):  # 每个叶子交换机连接2个主机
-                    host_counter += 1
-                    host = self.addHost(f'h{host_counter}')
-                    self.addLink(host, child_switch, bw=10)
+                for j in range(2):
+                    self.host_counter += 1
+                    host = self.addHost(f'h{self.host_counter}')
+                    self.addLink(host, child, bw=10)
             
-            # 递归创建下一层
-            self._create_tree_level(child_switch, level + 1, max_depth, fanout)
-        
-        self._switch_counter = switch_counter
-        self._host_counter = host_counter
+            self._create_tree_level(child, level + 1, max_depth, fanout)
 
 
 class CustomTopology(Topo):
