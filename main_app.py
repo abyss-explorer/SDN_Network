@@ -126,11 +126,18 @@ class SDNControllerApp:
     def _monitoring_loop(self):
         """监控循环"""
         last_topology_hash = None
+        check_count = 0
         
         while self.monitoring_active and not self.shutdown_event.is_set():
             try:
+                check_count += 1
+                
                 # 更新拓扑
                 if self.topology_manager.update_topology():
+                    # 记录拓扑信息
+                    logger.debug(f"[轮询 #{check_count}] 拓扑信息 - 设备: {len(self.topology_manager.devices)}, "
+                               f"主机: {len(self.topology_manager.hosts)}, 链路: {len(self.topology_manager.links)}")
+                    
                     # 计算当前拓扑的哈希值（简单比较链路数量和设备数量）
                     current_hash = hash((
                         len(self.topology_manager.devices),
@@ -141,21 +148,43 @@ class SDNControllerApp:
                     
                     # 检查拓扑是否变化
                     if last_topology_hash is not None and current_hash != last_topology_hash:
-                        logger.info("检测到拓扑变化，检查受影响的监控节点对")
+                        logger.info(f"[轮询 #{check_count}] 检测到拓扑变化，检查受影响的监控节点对")
                         self._handle_topology_change()
+                    elif last_topology_hash is not None:
+                        logger.debug(f"[轮询 #{check_count}] 拓扑无变化")
+                    
+                    # 记录监控的节点对状态
+                    if self.monitored_pairs:
+                        logger.debug(f"[轮询 #{check_count}] 当前监控节点对数: {len(self.monitored_pairs)}")
+                        for src_mac, dst_mac in self.monitored_pairs:
+                            try:
+                                path_info = self.path_calculator.get_host_to_host_path(src_mac, dst_mac)
+                                if path_info['success']:
+                                    hop_count = len(path_info.get('path', [])) - 1
+                                    logger.debug(f"[轮询 #{check_count}] 节点对 {src_mac} -> {dst_mac} 路径正常 (跳数: {hop_count})")
+                                else:
+                                    logger.warning(f"[轮询 #{check_count}] 节点对 {src_mac} -> {dst_mac} 路径异常")
+                            except Exception as e:
+                                logger.debug(f"[轮询 #{check_count}] 检查节点对 {src_mac} -> {dst_mac} 状态出错: {e}")
+                    else:
+                        logger.debug(f"[轮询 #{check_count}] 当前无监控的节点对")
                     
                     last_topology_hash = current_hash
+                else:
+                    logger.warning(f"[轮询 #{check_count}] 拓扑更新失败")
                 
                 # 每5秒检查一次
                 time.sleep(5)
                 
             except Exception as e:
-                logger.error(f"监控循环错误: {e}")
+                logger.error(f"[轮询 #{check_count}] 监控循环错误: {e}")
                 time.sleep(5)
     
     def _handle_topology_change(self):
         """处理拓扑变化"""
         affected_pairs = []
+        
+        logger.info("开始检查监控的节点对是否受影响...")
         
         for src_mac, dst_mac in self.monitored_pairs:
             # 检查路径是否仍然有效
@@ -163,22 +192,28 @@ class SDNControllerApp:
                 current_path = self.path_calculator.get_host_to_host_path(src_mac, dst_mac)
                 if not current_path['success']:
                     affected_pairs.append((src_mac, dst_mac))
-                    logger.warning(f"节点对 {src_mac} -> {dst_mac} 的路径受影响")
+                    logger.warning(f"节点对 {src_mac} -> {dst_mac} 的路径受影响，准备恢复")
+                else:
+                    logger.info(f"节点对 {src_mac} -> {dst_mac} 路径仍然可用")
             except Exception as e:
                 logger.error(f"检查路径失败 {src_mac} -> {dst_mac}: {e}")
                 affected_pairs.append((src_mac, dst_mac))
         
         # 为受影响的节点对重新启用通信
-        for src_mac, dst_mac in affected_pairs:
-            logger.info(f"为节点对 {src_mac} -> {dst_mac} 重新计算路径并下发流表")
-            try:
-                success = self.network_communicator.enable_host_communication(src_mac, dst_mac)
-                if success:
-                    logger.info(f"成功重新启用通信: {src_mac} -> {dst_mac}")
-                else:
-                    logger.error(f"重新启用通信失败: {src_mac} -> {dst_mac}")
-            except Exception as e:
-                logger.error(f"重新启用通信错误 {src_mac} -> {dst_mac}: {e}")
+        if affected_pairs:
+            logger.info(f"共 {len(affected_pairs)} 个节点对受影响，开始重新计算路径并下发流表...")
+            for src_mac, dst_mac in affected_pairs:
+                logger.info(f"为节点对 {src_mac} -> {dst_mac} 重新计算路径并下发流表")
+                try:
+                    success = self.network_communicator.enable_host_communication(src_mac, dst_mac)
+                    if success:
+                        logger.info(f"成功重新启用通信: {src_mac} -> {dst_mac}")
+                    else:
+                        logger.error(f"重新启用通信失败: {src_mac} -> {dst_mac}")
+                except Exception as e:
+                    logger.error(f"重新启用通信错误 {src_mac} -> {dst_mac}: {e}")
+        else:
+            logger.info("没有受影响的节点对，拓扑变化未影响监控的通信路径")
     
     def _signal_handler(self, signum, frame):
         """信号处理器"""
