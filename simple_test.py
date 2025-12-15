@@ -4,59 +4,25 @@
 简化的SDN状态测试脚本
 """
 
-import sys
-import os
-sys.path.insert(0, os.getcwd())
-
-from controller_client import ONOSControllerClient, TopologyManager
-from path_calculator import HostPathCalculator
+from test_utils import SDNTestUtils
 
 def main():
     print("SDN网络状态测试")
     print("=" * 50)
     
     # 初始化组件
-    controller = ONOSControllerClient()
-    topology_manager = TopologyManager(controller)
-    path_calculator = HostPathCalculator(topology_manager)
-    
-    # 测试连接
-    if not controller.test_connection():
-        print("✗ ONOS控制器连接失败")
+    test_utils = SDNTestUtils()
+    if not test_utils.initialize_components():
         return
-    
-    print("✓ ONOS控制器连接成功")
-    
-    # 更新拓扑
-    if not topology_manager.update_topology():
-        print("✗ 拓扑更新失败")
-        return
-    
-    print("✓ 拓扑更新成功")
     
     # 显示统计信息
-    stats = topology_manager.get_topology_stats()
-    print(f"\n网络统计:")
-    print(f"  设备数量: {stats['devices']}")
-    print(f"  主机数量: {stats['hosts']}")
-    print(f"  链路数量: {stats['links']}")
-    print(f"  活跃设备: {stats['active_devices']}")
+    test_utils.print_topology_stats()
     
     # 显示设备列表
-    print(f"\n设备列表:")
-    for device_id, device_info in topology_manager.devices.items():
-        status = "活跃" if device_info['available'] else "非活跃"
-        print(f"  {device_id}: {device_info['type']} - {status}")
+    test_utils.print_devices()
     
     # 显示主机列表
-    print(f"\n主机列表:")
-    for mac, host_info in topology_manager.hosts.items():
-        device = host_info['location']['device']
-        port = host_info['location']['port']
-        ips = ', '.join(host_info['ipAddresses']) if host_info['ipAddresses'] else 'N/A'
-        print(f"  {mac}")
-        print(f"    IP: {ips}")
-        print(f"    位置: {device}:{port}")
+    test_utils.print_hosts()
     
     # 显示链路列表
     print(f"\n链路列表:")

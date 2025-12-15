@@ -4,39 +4,19 @@
 测试网络通信功能
 """
 
-import sys
-import os
-sys.path.insert(0, os.getcwd())
-
-from controller_client import ONOSControllerClient, TopologyManager
-from path_calculator import HostPathCalculator
-from flow_manager import NetworkCommunicator
+from test_utils import SDNTestUtils
 
 def main():
     print("SDN网络通信测试")
     print("=" * 50)
     
     # 初始化组件
-    controller = ONOSControllerClient()
-    topology_manager = TopologyManager(controller)
-    communicator = NetworkCommunicator(controller, topology_manager)
-    
-    # 测试连接
-    if not controller.test_connection():
-        print("✗ ONOS控制器连接失败")
+    test_utils = SDNTestUtils()
+    if not test_utils.initialize_components():
         return
-    
-    print("✓ ONOS控制器连接成功")
-    
-    # 更新拓扑
-    if not topology_manager.update_topology():
-        print("✗ 拓扑更新失败")
-        return
-    
-    print("✓ 拓扑更新成功")
     
     # 获取主机列表
-    hosts = list(topology_manager.hosts.keys())
+    hosts = test_utils.get_host_list()
     if len(hosts) < 2:
         print(f"✗ 主机数量不足，需要至少2个主机，当前有{len(hosts)}个")
         return
@@ -47,7 +27,16 @@ def main():
     src_mac = hosts[0]
     dst_mac = hosts[1]
     
-    src_ip = topology_manager.hosts[src_mac]['ipAddresses'][0] if topology_manager.hosts[src_mac]['ipAddresses'] else 'N/A'
+    src_ip = test_utils.topology_manager.hosts[src_mac]['ipAddresses'][0] if test_utils.topology_manager.hosts[src_mac]['ipAddresses'] else 'N/A'
+    dst_ip = test_utils.topology_manager.hosts[dst_mac]['ipAddresses'][0] if test_utils.topology_manager.hosts[dst_mac]['ipAddresses'] else 'N/A'
+    
+    print(f"\n测试主机: {src_mac} ({src_ip}) -> {dst_mac} ({dst_ip})")
+    
+    # 启用通信
+    if test_utils.communicator.enable_host_communication(src_mac, dst_mac):
+        print("✓ 通信启用成功")
+    else:
+        print("✗ 通信启用失败")
     dst_ip = topology_manager.hosts[dst_mac]['ipAddresses'][0] if topology_manager.hosts[dst_mac]['ipAddresses'] else 'N/A'
     
     print(f"\n测试通信:")

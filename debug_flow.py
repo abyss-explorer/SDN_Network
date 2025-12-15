@@ -4,35 +4,20 @@
 调试流表规则
 """
 
-import sys
-import os
 import json
-sys.path.insert(0, os.getcwd())
-
-from controller_client import ONOSControllerClient, TopologyManager
+from test_utils import SDNTestUtils
 from flow_manager import FlowRuleBuilder
 
 def main():
     print("调试流表规则")
     print("=" * 50)
     
-    controller = ONOSControllerClient()
-    topology_manager = TopologyManager(controller)
-    
-    if not controller.test_connection():
-        print("✗ ONOS控制器连接失败")
+    test_utils = SDNTestUtils()
+    if not test_utils.initialize_components():
         return
-    
-    print("✓ ONOS控制器连接成功\n")
-    
-    if not topology_manager.update_topology():
-        print("✗ 拓扑更新失败")
-        return
-    
-    print("✓ 拓扑更新成功\n")
     
     # 获取主机信息
-    hosts = list(topology_manager.hosts.keys())
+    hosts = test_utils.get_host_list()
     if len(hosts) < 2:
         print("主机数量不足")
         return

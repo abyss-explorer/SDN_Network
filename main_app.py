@@ -32,195 +32,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class MininetTopology:
-    """Mininet拓扑管理器"""
-    
-    def __init__(self):
-        """初始化Mininet拓扑管理器"""
-        self.topology_script = None
-        self.mininet_process = None
-    
-    def create_linear_topology(self, num_switches: int = 4, hosts_per_switch: int = 2) -> str:
-        """
-        创建线性拓扑的Python脚本
-        
-        Args:
-            num_switches: 交换机数量
-            hosts_per_switch: 每个交换机连接的主机数量
-            
-        Returns:
-            str: 拓扑脚本路径
-        """
-        script_content = '''#!/usr/bin/env python3
-"""
-线性拓扑配置脚本
-创建 ''' + str(num_switches) + ''' 个交换机的线性拓扑，每个交换机连接 ''' + str(hosts_per_switch) + ''' 个主机
-"""
-
-from mininet.net import Mininet
-from mininet.node import Controller, RemoteController
-from mininet.cli import CLI
-from mininet.link import TCLink
-from mininet.log import setLogLevel, info
-from mininet.topo import Topo
-import sys
-import time
-
-class LinearTopology(Topo):
-    """线性拓扑类"""
-    
-    def __init__(self, num_switches=4, hosts_per_switch=2):
-        """初始化线性拓扑"""
-        Topo.__init__(self)
-        
-        # 创建交换机
-        switches = []
-        for i in range(num_switches):
-            switch = self.addSwitch('s' + str(i+1))
-            switches.append(switch)
-        
-        # 创建主机并连接到交换机
-        host_count = 0
-        for i, switch in enumerate(switches):
-            for j in range(hosts_per_switch):
-                host_count += 1
-                host = self.addHost('h' + str(host_count))
-                self.addLink(host, switch)
-        
-        # 连接交换机（线性连接）
-        for i in range(num_switches - 1):
-            self.addLink(switches[i], switches[i+1])
-
-def create_network():
-    """创建并启动网络"""
-    info("*** 创建线性拓扑
-")
-    topo = LinearTopology(num_switches=''' + str(num_switches) + ''', hosts_per_switch=''' + str(hosts_per_switch) + ''')
-    
-    info("*** 创建网络
-")
-    net = Mininet(
-        topo=topo,
-        controller=lambda name: RemoteController(name, ip='127.0.0.1', port=6653),
-        link=TCLink,
-        waitConnected=True
-    )
-    
-    info("*** 启动网络
-")
-    net.start()
-    
-    # 等待交换机连接到控制器
-    info("*** 等待交换机连接到控制器
-")
-    time.sleep(5)
-    
-    # 为每个主机配置IP地址
-    host_count = 0
-    for i in range(''' + str(num_switches) + '''):
-        for j in range(''' + str(hosts_per_switch) + '''):
-            host_count += 1
-            host = net.get('h' + str(host_count))
-            # 配置IP地址，使用10.0.i.j/24格式
-            host.setIP('10.0.' + str(i) + '.' + str(j+1) + '/24')
-    
-    info("*** 网络配置完成
-")
-    info("*** 主机IP地址配置:
-")
-    host_count = 0
-    for i in range(''' + str(num_switches) + '''):
-        for j in range(''' + str(hosts_per_switch) + '''):
-            host_count += 1
-            host = net.get('h' + str(host_count))
-            info("h" + str(host_count) + ": " + host.IP() + "\n")
-    
-    # 测试基本连通性
-    info("\n*** 测试基本连通性\n")
-    net.pingAll()
-    
-    # 启动CLI
-    info("\n*** 启动Mininet CLI\n")
-    info("可用命令:\n")
-    info("  h1 ping h2        # 测试主机间连通性\n")
-    info("  h1 ping h8        # 测试远端主机连通性\n")
-    info("  h1 iperf h2       # 测试带宽\n")
-    info("  exit              # 退出CLI\n")
-    info("\n")
-    
-    try:
-        CLI(net)
-    except KeyboardInterrupt:
-        info("\n*** 键盘中断\n")
-    finally:
-        info("*** 停止网络\n")
-        net.stop()
-
-if __name__ == '__main__':
-    setLogLevel('info')
-    create_network()
-'''
-        
-        script_path = '/tmp/linear_topology.py'
-        with open(script_path, 'w') as f:
-            f.write(script_content)
-        
-        # 设置执行权限
-        os.chmod(script_path, 0o755)
-        
-        logger.info(f"线性拓扑脚本已创建: {script_path}")
-        return script_path
-    
-    def start_mininet(self, topology_script: str) -> bool:
-        """
-        启动Mininet仿真
-        
-        Args:
-            topology_script: 拓扑脚本路径
-            
-        Returns:
-            bool: 启动是否成功
-        """
-        try:
-            import subprocess
-            
-            logger.info("启动Mininet仿真环境")
-            
-            # 使用subprocess启动Mininet
-            self.mininet_process = subprocess.Popen(
-                ['sudo', 'python3', topology_script],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            
-            # 等待一段时间确保Mininet启动
-            time.sleep(10)
-            
-            if self.mininet_process.poll() is None:
-                logger.info("Mininet仿真环境启动成功")
-                return True
-            else:
-                stdout, stderr = self.mininet_process.communicate()
-                logger.error(f"Mininet启动失败: {stderr}")
-                return False
-                
-        except Exception as e:
-            logger.error(f"启动Mininet失败: {e}")
-            return False
-    
-    def stop_mininet(self):
-        """停止Mininet仿真"""
-        if self.mininet_process:
-            try:
-                self.mininet_process.terminate()
-                self.mininet_process.wait(timeout=5)
-                logger.info("Mininet仿真环境已停止")
-            except Exception as e:
-                logger.error(f"停止Mininet失败: {e}")
-                self.mininet_process.kill()
-
-
 class SDNControllerApp:
     """SDN控制器应用程序"""
     
@@ -243,7 +54,7 @@ class SDNControllerApp:
         self.topology_manager = None
         self.path_calculator = None
         self.network_communicator = None
-        self.mininet_topology = MininetTopology()
+        self.mininet_process = None
         
         # 控制标志
         self.running = False
@@ -657,8 +468,14 @@ class SDNControllerApp:
         self.shutdown_event.set()
         
         # 停止Mininet
-        if self.mininet_topology:
-            self.mininet_topology.stop_mininet()
+        if self.mininet_process:
+            try:
+                self.mininet_process.terminate()
+                self.mininet_process.wait(timeout=5)
+                logger.info("Mininet仿真环境已停止")
+            except Exception as e:
+                logger.error(f"停止Mininet失败: {e}")
+                self.mininet_process.kill()
         
         logger.info("应用程序已关闭")
 

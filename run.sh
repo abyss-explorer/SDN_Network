@@ -220,46 +220,6 @@ cleanup() {
     print_success "环境清理完成"
 }
 
-# 主函数
-main() {
-    case "$1" in
-        "status")
-            check_onos_status
-            ;;
-        "start-app")
-            check_onos_status || exit 1
-            check_python_deps || exit 1
-            start_sdn_app
-            ;;
-        "start-mininet")
-            check_python_deps || exit 1
-            start_mininet_only
-            ;;
-        "test")
-            test_modules
-            ;;
-        "cleanup")
-            cleanup
-            ;;
-        "install-deps")
-            check_python_deps
-            ;;
-        "help"|"--help"|"-h")
-            show_help
-            ;;
-        "")
-            print_info "启动SDN网络通信系统..."
-            check_onos_status || exit 1
-            check_python_deps || exit 1
-            start_sdn_app
-            ;;
-        *)
-            print_error "未知选项: $1"
-            show_help
-            exit 1
-            ;;
-    esac
-}
 
 # 主函数
 main() {
