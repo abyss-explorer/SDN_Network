@@ -19,6 +19,7 @@ from threading import Thread, Event
 from controller_client import ONOSControllerClient, TopologyManager
 from path_calculator import HostPathCalculator
 from flow_manager import NetworkCommunicator
+from intent_manager import IntentManager
 
 # 配置日志
 logging.basicConfig(
@@ -54,6 +55,7 @@ class SDNControllerApp:
         self.topology_manager = None
         self.path_calculator = None
         self.network_communicator = None
+        self.intent_manager = None
         self.mininet_process = None
         
         # 监控相关
@@ -250,6 +252,9 @@ class SDNControllerApp:
             self.network_communicator = NetworkCommunicator(
                 self.controller_client, self.topology_manager
             )
+            
+            # 初始化Intent管理器
+            self.intent_manager = IntentManager(self.onos_url, (self.onos_user, self.onos_pass))
             
             logger.info("所有组件初始化成功")
             return True
@@ -563,6 +568,12 @@ class SDNControllerApp:
             src_mac, dst_mac = args[0], args[1]
             if self.add_monitored_pair(src_mac, dst_mac):
                 print(f"已添加监控节点对: {src_mac} -> {dst_mac}")
+                
+                # 创建Host Intent在ONOS UI中突显路径
+                if self.intent_manager.create_host_intent(src_mac, dst_mac):
+                    print(f"✓ 路径已在ONOS UI拓扑图中突显")
+                else:
+                    print("⚠ Intent创建失败，但监控已添加")
             else:
                 print("节点对已在监控列表中")
         except Exception as e:
@@ -578,6 +589,12 @@ class SDNControllerApp:
             src_mac, dst_mac = args[0], args[1]
             if self.remove_monitored_pair(src_mac, dst_mac):
                 print(f"已移除监控节点对: {src_mac} -> {dst_mac}")
+                
+                # 删除Host Intent
+                if self.intent_manager.delete_host_intent(src_mac, dst_mac):
+                    print(f"✓ 路径已从ONOS UI中移除")
+                else:
+                    print("⚠ Intent删除失败或不存在，但监控已移除")
             else:
                 print("节点对不在监控列表中")
         except Exception as e:
