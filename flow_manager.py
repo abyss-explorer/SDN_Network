@@ -11,8 +11,6 @@ from typing import Dict, List, Optional, Any, Tuple
 from controller_client import ONOSControllerClient, TopologyManager
 from path_calculator import HostPathCalculator
 
-# 配置日志
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 

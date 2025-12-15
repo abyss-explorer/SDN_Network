@@ -21,15 +21,25 @@ from path_calculator import HostPathCalculator
 from flow_manager import NetworkCommunicator
 from intent_manager import IntentManager
 
-# 配置日志
+# 配置日志：分离控制台和文件输出
+# 文件处理器：记录所有级别的日志（DEBUG及以上）
+file_handler = logging.FileHandler('sdn_network.log')
+file_handler.setLevel(logging.DEBUG)
+file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(file_formatter)
+
+# 控制台处理器：只显示重要信息（INFO及以上）
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_formatter = logging.Formatter('%(name)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(console_formatter)
+
+# 根日志配置
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('sdn_network.log'),
-        logging.StreamHandler()
-    ]
+    level=logging.DEBUG,
+    handlers=[file_handler, console_handler]
 )
+
 logger = logging.getLogger(__name__)
 
 

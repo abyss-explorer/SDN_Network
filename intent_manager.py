@@ -11,8 +11,6 @@ from typing import Dict, List, Optional, Any
 from requests.exceptions import RequestException
 import requests
 
-# 配置日志
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 

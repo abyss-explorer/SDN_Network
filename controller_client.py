@@ -12,8 +12,6 @@ import logging
 from typing import Dict, List, Optional, Tuple, Any
 from requests.exceptions import RequestException, ConnectionError, Timeout
 
-# 配置日志
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
