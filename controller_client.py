@@ -34,6 +34,7 @@ class ONOSControllerClient:
         self.auth = (username, password)
         self.session = requests.Session()
         self.session.auth = self.auth
+        self.headers = {"Content-Type": "application/json"}
         
     def test_connection(self) -> bool:
         """
