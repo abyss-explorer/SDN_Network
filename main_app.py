@@ -56,6 +56,11 @@ class SDNControllerApp:
         self.network_communicator = None
         self.mininet_process = None
         
+        # 监控相关
+        self.monitored_pairs = []  # List[Tuple[str, str]] - 要监控的节点对
+        self.monitoring_thread = None
+        self.monitoring_active = False
+        
         # 控制标志
         self.running = False
         self.shutdown_event = Event()
@@ -63,6 +68,117 @@ class SDNControllerApp:
         # 注册信号处理
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
+    
+    def add_monitored_pair(self, src_mac: str, dst_mac: str) -> bool:
+        """
+        添加要监控的节点对
+        
+        Args:
+            src_mac: 源主机MAC
+            dst_mac: 目的主机MAC
+            
+        Returns:
+            bool: 添加是否成功
+        """
+        pair = (src_mac, dst_mac)
+        if pair not in self.monitored_pairs:
+            self.monitored_pairs.append(pair)
+            logger.info(f"添加监控节点对: {src_mac} -> {dst_mac}")
+            return True
+        return False
+    
+    def remove_monitored_pair(self, src_mac: str, dst_mac: str) -> bool:
+        """
+        移除监控的节点对
+        
+        Args:
+            src_mac: 源主机MAC
+            dst_mac: 目的主机MAC
+            
+        Returns:
+            bool: 移除是否成功
+        """
+        pair = (src_mac, dst_mac)
+        if pair in self.monitored_pairs:
+            self.monitored_pairs.remove(pair)
+            logger.info(f"移除监控节点对: {src_mac} -> {dst_mac}")
+            return True
+        return False
+    
+    def start_monitoring(self):
+        """启动监控线程"""
+        if self.monitoring_thread and self.monitoring_thread.is_alive():
+            logger.warning("监控线程已在运行")
+            return
+        
+        self.monitoring_active = True
+        self.monitoring_thread = Thread(target=self._monitoring_loop, daemon=True)
+        self.monitoring_thread.start()
+        logger.info("启动网络监控线程")
+    
+    def stop_monitoring(self):
+        """停止监控线程"""
+        self.monitoring_active = False
+        if self.monitoring_thread:
+            self.monitoring_thread.join(timeout=5)
+            logger.info("停止网络监控线程")
+    
+    def _monitoring_loop(self):
+        """监控循环"""
+        last_topology_hash = None
+        
+        while self.monitoring_active and not self.shutdown_event.is_set():
+            try:
+                # 更新拓扑
+                if self.topology_manager.update_topology():
+                    # 计算当前拓扑的哈希值（简单比较链路数量和设备数量）
+                    current_hash = hash((
+                        len(self.topology_manager.devices),
+                        len(self.topology_manager.hosts),
+                        len(self.topology_manager.links),
+                        tuple(sorted(self.topology_manager.links))
+                    ))
+                    
+                    # 检查拓扑是否变化
+                    if last_topology_hash is not None and current_hash != last_topology_hash:
+                        logger.info("检测到拓扑变化，检查受影响的监控节点对")
+                        self._handle_topology_change()
+                    
+                    last_topology_hash = current_hash
+                
+                # 每5秒检查一次
+                time.sleep(5)
+                
+            except Exception as e:
+                logger.error(f"监控循环错误: {e}")
+                time.sleep(5)
+    
+    def _handle_topology_change(self):
+        """处理拓扑变化"""
+        affected_pairs = []
+        
+        for src_mac, dst_mac in self.monitored_pairs:
+            # 检查路径是否仍然有效
+            try:
+                current_path = self.path_calculator.get_host_to_host_path(src_mac, dst_mac)
+                if not current_path['success']:
+                    affected_pairs.append((src_mac, dst_mac))
+                    logger.warning(f"节点对 {src_mac} -> {dst_mac} 的路径受影响")
+            except Exception as e:
+                logger.error(f"检查路径失败 {src_mac} -> {dst_mac}: {e}")
+                affected_pairs.append((src_mac, dst_mac))
+        
+        # 为受影响的节点对重新启用通信
+        for src_mac, dst_mac in affected_pairs:
+            logger.info(f"为节点对 {src_mac} -> {dst_mac} 重新计算路径并下发流表")
+            try:
+                success = self.network_communicator.enable_host_communication(src_mac, dst_mac)
+                if success:
+                    logger.info(f"成功重新启用通信: {src_mac} -> {dst_mac}")
+                else:
+                    logger.error(f"重新启用通信失败: {src_mac} -> {dst_mac}")
+            except Exception as e:
+                logger.error(f"重新启用通信错误 {src_mac} -> {dst_mac}: {e}")
     
     def _signal_handler(self, signum, frame):
         """信号处理器"""
@@ -192,6 +308,11 @@ class SDNControllerApp:
         print("  enable <src> <dst> - 启用主机间通信")
         print("  enable-all      - 启用所有主机通信")
         print("  ping <src> <dst> - 测试主机连通性")
+        print("  monitor <src> <dst> - 添加监控节点对")
+        print("  unmonitor <src> <dst> - 移除监控节点对")
+        print("  show-monitors   - 显示监控的节点对")
+        print("  start-monitoring - 启动监控")
+        print("  stop-monitoring  - 停止监控")
         print("  start-mininet   - 启动Mininet拓扑 (需要sudo权限)")
         print("  help            - 显示帮助信息")
         print("  quit/exit       - 退出程序")
@@ -225,6 +346,16 @@ class SDNControllerApp:
                     self._enable_all_communication()
                 elif cmd == 'ping':
                     self._test_connectivity(command[1:])
+                elif cmd == 'monitor':
+                    self._add_monitor(command[1:])
+                elif cmd == 'unmonitor':
+                    self._remove_monitor(command[1:])
+                elif cmd == 'show-monitors':
+                    self._show_monitors()
+                elif cmd == 'start-monitoring':
+                    self._start_monitoring()
+                elif cmd == 'stop-monitoring':
+                    self._stop_monitoring()
                 elif cmd == 'start-mininet':
                     self._start_mininet_interactive()
                 elif cmd == 'help':
@@ -387,6 +518,56 @@ class SDNControllerApp:
         except Exception as e:
             print(f"连通性测试错误: {e}")
     
+    def _add_monitor(self, args):
+        """添加监控节点对"""
+        if len(args) < 2:
+            print("用法: monitor <src_mac> <dst_mac>")
+            return
+        
+        try:
+            src_mac, dst_mac = args[0], args[1]
+            if self.add_monitored_pair(src_mac, dst_mac):
+                print(f"已添加监控节点对: {src_mac} -> {dst_mac}")
+            else:
+                print("节点对已在监控列表中")
+        except Exception as e:
+            print(f"添加监控失败: {e}")
+    
+    def _remove_monitor(self, args):
+        """移除监控节点对"""
+        if len(args) < 2:
+            print("用法: unmonitor <src_mac> <dst_mac>")
+            return
+        
+        try:
+            src_mac, dst_mac = args[0], args[1]
+            if self.remove_monitored_pair(src_mac, dst_mac):
+                print(f"已移除监控节点对: {src_mac} -> {dst_mac}")
+            else:
+                print("节点对不在监控列表中")
+        except Exception as e:
+            print(f"移除监控失败: {e}")
+    
+    def _show_monitors(self):
+        """显示监控的节点对"""
+        if not self.monitored_pairs:
+            print("当前没有监控的节点对")
+            return
+        
+        print("\n监控的节点对:")
+        for i, (src, dst) in enumerate(self.monitored_pairs, 1):
+            print(f"  {i}. {src} -> {dst}")
+    
+    def _start_monitoring(self):
+        """启动监控"""
+        self.start_monitoring()
+        print("网络监控已启动")
+    
+    def _stop_monitoring(self):
+        """停止监控"""
+        self.stop_monitoring()
+        print("网络监控已停止")
+    
     def _start_mininet_interactive(self):
         """交互式启动Mininet"""
         print("\n启动Mininet拓扑...")
@@ -419,6 +600,11 @@ class SDNControllerApp:
         print("  enable <src> <dst> - 启用主机间通信")
         print("  enable-all      - 启用所有主机通信")
         print("  ping <src> <dst> - 测试主机连通性")
+        print("  monitor <src> <dst> - 添加监控节点对")
+        print("  unmonitor <src> <dst> - 移除监控节点对")
+        print("  show-monitors   - 显示监控的节点对")
+        print("  start-monitoring - 启动监控")
+        print("  stop-monitoring  - 停止监控")
         print("  start-mininet   - 启动Mininet拓扑 (需要sudo权限)")
         print("  help            - 显示帮助信息")
         print("  quit/exit       - 退出程序")
@@ -466,6 +652,9 @@ class SDNControllerApp:
         logger.info("关闭SDN网络通信系统")
         self.running = False
         self.shutdown_event.set()
+        
+        # 停止监控
+        self.stop_monitoring()
         
         # 停止Mininet
         if self.mininet_process:
