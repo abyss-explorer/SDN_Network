@@ -241,195 +241,103 @@ class ONOSControllerClient:
             logger.error(f"获取设备 {device_id} 流表失败: {e}")
             return []
     
-        def delete_flow_rule(self, device_id: str, flow_id: str) -> bool:
-    
-            """
-    
-            删除流表规则
-    
-            
-    
-            Args:
-    
-                device_id: 设备ID
-    
-                flow_id: 流表ID
-    
-                
-    
-            Returns:
-    
-                bool: 删除是否成功
-    
-            """
-    
-            try:
-    
-                url = f"{self.base_url}/onos/v1/flows/{device_id}/{flow_id}"
-    
-                headers = {"Accept": "application/json"}
-    
-                response = self.session.delete(url, headers=headers, timeout=10)
-    
-                response.raise_for_status()
-    
-                
-    
-                logger.info(f"设备 {device_id} 流表 {flow_id} 删除成功")
-    
-                return True
-    
-                
-    
-            except RequestException as e:
-    
-                logger.error(f"设备 {device_id} 流表 {flow_id} 删除失败: {e}")
-    
-                return False
-    
+    def delete_flow_rule(self, device_id: str, flow_id: str) -> bool:
+        """
+        删除流表规则
         
-    
-        def get_applications(self) -> List[Dict]:
-    
-            """
-    
-            获取所有ONOS应用信息
-    
+        Args:
+            device_id: 设备ID
+            flow_id: 流表ID
             
+        Returns:
+            bool: 删除是否成功
+        """
+        try:
+            url = f"{self.base_url}/onos/v1/flows/{device_id}/{flow_id}"
+            headers = {"Accept": "application/json"}
+            response = self.session.delete(url, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            logger.info(f"设备 {device_id} 流表 {flow_id} 删除成功")
+            return True
+            
+        except RequestException as e:
+            logger.error(f"设备 {device_id} 流表 {flow_id} 删除失败: {e}")
+            return False
     
-            Returns:
-    
-                List[Dict]: 应用信息列表
-    
-            """
-    
-            try:
-    
-                url = f"{self.base_url}/onos/v1/applications"
-    
-                headers = {"Accept": "application/json"}
-    
-                response = self.session.get(url, headers=headers, timeout=10)
-    
-                response.raise_for_status()
-    
-                
-    
-                data = response.json()
-    
-                return data.get('applications', [])
-    
-            except Exception as e:
-    
-                logger.error(f"获取应用列表失败: {e}")
-    
-                return []
-    
+    def get_applications(self) -> List[Dict]:
+        """
+        获取所有ONOS应用信息
         
-    
-        def deactivate_application(self, app_id: str) -> bool:
-    
-            """
-    
-            停用指定的应用
-    
+        Returns:
+            List[Dict]: 应用信息列表
+        """
+        try:
+            url = f"{self.base_url}/onos/v1/applications"
+            headers = {"Accept": "application/json"}
+            response = self.session.get(url, headers=headers, timeout=10)
+            response.raise_for_status()
             
+            data = response.json()
+            return data.get('applications', [])
+            
+        except Exception as e:
+            logger.error(f"获取应用列表失败: {e}")
+            return []
     
-            Args:
-    
-                app_id: 应用ID
-    
-                
-    
-            Returns:
-    
-                bool: 停用是否成功
-    
-            """
-    
-            try:
-    
-                url = f"{self.base_url}/onos/v1/applications/{app_id}/active"
-    
-                response = self.session.delete(url, headers=self.headers, timeout=10)
-    
-                response.raise_for_status()
-    
-                logger.info(f"已停用应用: {app_id}")
-    
-                return True
-    
-            except Exception as e:
-    
-                logger.error(f"停用应用 {app_id} 失败: {e}")
-    
-                return False
-    
+    def deactivate_application(self, app_id: str) -> bool:
+        """
+        停用指定的应用
         
-    
-        def activate_application(self, app_id: str) -> bool:
-    
-            """
-    
-            激活指定的应用
-    
+        Args:
+            app_id: 应用ID
             
+        Returns:
+            bool: 停用是否成功
+        """
+        try:
+            url = f"{self.base_url}/onos/v1/applications/{app_id}/active"
+            response = self.session.delete(url, headers=self.headers, timeout=10)
+            response.raise_for_status()
+            logger.info(f"已停用应用: {app_id}")
+            return True
+        except Exception as e:
+            logger.error(f"停用应用 {app_id} 失败: {e}")
+            return False
     
-            Args:
-    
-                app_id: 应用ID
-    
-                
-    
-            Returns:
-    
-                bool: 激活是否成功
-    
-            """
-    
-            try:
-    
-                url = f"{self.base_url}/onos/v1/applications/{app_id}/active"
-    
-                response = self.session.post(url, headers=self.headers, timeout=10)
-    
-                response.raise_for_status()
-    
-                logger.info(f"已激活应用: {app_id}")
-    
-                return True
-    
-            except Exception as e:
-    
-                logger.error(f"激活应用 {app_id} 失败: {e}")
-    
-                return False
-    
+    def activate_application(self, app_id: str) -> bool:
+        """
+        激活指定的应用
         
-    
-        def deactivate_fwd_app(self) -> bool:
-    
-            """
-    
-            便捷方法：停用fwd应用
-    
+        Args:
+            app_id: 应用ID
             
+        Returns:
+            bool: 激活是否成功
+        """
+        try:
+            url = f"{self.base_url}/onos/v1/applications/{app_id}/active"
+            response = self.session.post(url, headers=self.headers, timeout=10)
+            response.raise_for_status()
+            logger.info(f"已激活应用: {app_id}")
+            return True
+        except Exception as e:
+            logger.error(f"激活应用 {app_id} 失败: {e}")
+            return False
     
-            Returns:
-    
-                bool: 停用是否成功
-    
-            """
-    
-            return self.deactivate_application("org.onosproject.fwd")
-    
-    
-    
-    
-    
-    class TopologyManager:
-    
-        """网络拓扑管理器"""    
+    def deactivate_fwd_app(self) -> bool:
+        """
+        便捷方法：停用fwd应用
+        
+        Returns:
+            bool: 停用是否成功
+        """
+        return self.deactivate_application("org.onosproject.fwd")
+
+
+class TopologyManager:
+    """网络拓扑管理器"""
+
     def __init__(self, controller_client: ONOSControllerClient):
         """
         初始化拓扑管理器
