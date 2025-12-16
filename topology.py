@@ -95,7 +95,7 @@ class CustomTopology(Topo):
         # 如果没有提供配置，使用默认配置
         if topology_config is None:
             topology_config = {
-                'switches': ['s1', 's2', 's3', 's4'],
+                'switches': ['s1', 's2', 's3', 's4', 's5', 's6'],
                 'hosts': [
                     {'id': 'h1', 'switch': 's1', 'bw': 10},
                     {'id': 'h2', 'switch': 's1', 'bw': 10},
@@ -107,11 +107,14 @@ class CustomTopology(Topo):
                     {'id': 'h8', 'switch': 's4', 'bw': 10}
                 ],
                 'links': [
-                    {'src': 's1', 'dst': 's2', 'bw': 20},
-                    {'src': 's2', 'dst': 's3', 'bw': 20},
-                    {'src': 's3', 'dst': 's4', 'bw': 20},
-                    {'src': 's1', 'dst': 's3', 'bw': 15},
-                    {'src': 's2', 'dst': 's4', 'bw': 15}
+                    {'src': 's1', 'dst': 's5', 'bw': 20},
+                    {'src': 's2', 'dst': 's5', 'bw': 20},
+                    {'src': 's3', 'dst': 's5', 'bw': 20},
+                    {'src': 's4', 'dst': 's5', 'bw': 20},
+                    {'src': 's1', 'dst': 's6', 'bw': 20},
+                    {'src': 's2', 'dst': 's6', 'bw': 20},
+                    {'src': 's3', 'dst': 's6', 'bw': 20},
+                    {'src': 's4', 'dst': 's6', 'bw': 20},
                 ]
             }
         
