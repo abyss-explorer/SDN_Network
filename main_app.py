@@ -252,6 +252,11 @@ class SDNControllerApp:
                 logger.error("ONOS控制器连接失败")
                 return False
             
+            # 停用fwd应用以避免冲突
+            logger.info("停用fwd应用以避免冲突...")
+            if not self.controller_client.deactivate_fwd_app():
+                logger.warning("停用fwd应用失败，但继续执行")
+            
             # 初始化拓扑管理器
             self.topology_manager = TopologyManager(self.controller_client)
             
@@ -275,20 +280,33 @@ class SDNControllerApp:
     
     def setup_network_communication(self) -> bool:
         """
-        设置网络通信
-        
-        Returns:
-            bool: 设置是否成功
+        设置网络通信 - 更新此方法以停用fwd并安装基础流表
         """
         try:
-            logger.info("设置网络通信")
+            logger.info("设置网络通信（停用fwd并安装基础流表）")
             
-            # 更新拓扑信息
+            # 1. 停用fwd应用以避免冲突
+            logger.info("停用fwd应用以避免冲突...")
+            if not self.controller_client.deactivate_fwd_app():
+                logger.warning("停用fwd应用失败，但继续执行")
+            
+            # 2. 更新拓扑信息
             if not self.topology_manager.update_topology():
                 logger.error("拓扑更新失败")
                 return False
             
-            # 启用所有主机间通信
+            # 3. 为所有设备安装基础流表
+            logger.info("安装基础流表...")
+            for device_id in self.topology_manager.devices.keys():
+                # 安装ARP反应式流表
+                if not self.network_communicator.flow_manager.install_arp_reactive_flows():
+                    logger.error(f"设备 {device_id} ARP反应式流表安装失败")
+                
+                # 安装广播反应式流表
+                if not self.network_communicator.flow_manager.install_broadcast_reactive_flows():
+                    logger.error(f"设备 {device_id} 广播反应式流表安装失败")
+            
+            # 4. 启用所有主机间通信
             if not self.network_communicator.enable_all_host_communication():
                 logger.error("启用主机通信失败")
                 return False

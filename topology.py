@@ -302,26 +302,7 @@ def create_custom_topology():
     """创建自定义拓扑"""
     info("*** 创建自定义拓扑\n")
     
-    topology_config = {
-        'switches': ['s1', 's2', 's3', 's4'],
-        'hosts': [
-            {'id': 'h1', 'switch': 's1', 'bw': 10},
-            {'id': 'h2', 'switch': 's1', 'bw': 10},
-            {'id': 'h3', 'switch': 's2', 'bw': 10},
-            {'id': 'h4', 'switch': 's2', 'bw': 10},
-            {'id': 'h5', 'switch': 's3', 'bw': 10},
-            {'id': 'h6', 'switch': 's3', 'bw': 10},
-            {'id': 'h7', 'switch': 's4', 'bw': 10},
-            {'id': 'h8', 'switch': 's4', 'bw': 10}
-        ],
-        'links': [
-            {'src': 's1', 'dst': 's2', 'bw': 20},
-            {'src': 's2', 'dst': 's3', 'bw': 20},
-            {'src': 's3', 'dst': 's4', 'bw': 20},
-            {'src': 's1', 'dst': 's3', 'bw': 15},  # 添加额外链路
-            {'src': 's2', 'dst': 's4', 'bw': 15}   # 添加额外链路
-        ]
-    }
+    topology_config = None
     
     topo = CustomTopology(topology_config)
     return topo

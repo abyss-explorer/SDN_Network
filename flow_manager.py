@@ -236,6 +236,94 @@ class FlowRuleBuilder:
         }
         
         return flow_rule
+    
+    def create_arp_reactive_flow(self, device_id: str, priority: int = 30000) -> Dict[str, Any]:
+        """
+        创建ARP处理流表，将ARP数据包发送到控制器
+        
+        Args:
+            device_id: 设备ID
+            priority: 优先级
+            
+        Returns:
+            Dict[str, Any]: 流表规则
+        """
+        flow_rule = {
+            "priority": priority,
+            "timeout": 0,
+            "isPermanent": True,
+            "deviceId": device_id,
+            "appId": "org.onosproject.sdnapp",
+            "treatment": {
+                "instructions": [
+                    {"type": "SEND_TO_CONTROLLER"}
+                ]
+            },
+            "selector": {
+                "criteria": [
+                    {"type": "ETH_TYPE", "ethType": "0x0806"}
+                ]
+            }
+        }
+        return flow_rule
+    
+    def create_broadcast_reactive_flow(self, device_id: str, priority: int = 30000) -> Dict[str, Any]:
+        """
+        创建广播处理流表，将广播数据包发送到控制器进行处理
+        
+        Args:
+            device_id: 设备ID
+            priority: 优先级
+            
+        Returns:
+            Dict[str, Any]: 流表规则
+        """
+        flow_rule = {
+            "priority": priority,
+            "timeout": 0,
+            "isPermanent": True,
+            "deviceId": device_id,
+            "appId": "org.onosproject.sdnapp",
+            "treatment": {
+                "instructions": [
+                    {"type": "SEND_TO_CONTROLLER"}
+                ]
+            },
+            "selector": {
+                "criteria": [
+                    {"type": "ETH_DST", "mac": "ff:ff:ff:ff:ff:ff"}
+                ]
+            }
+        }
+        return flow_rule
+    
+    def create_default_drop_flow(self, device_id: str, priority: int = 10000) -> Dict[str, Any]:
+        """
+        创建默认丢弃流表，用于丢弃未匹配的流量
+        
+        Args:
+            device_id: 设备ID
+            priority: 优先级
+            
+        Returns:
+            Dict[str, Any]: 流表规则
+        """
+        flow_rule = {
+            "priority": priority,
+            "timeout": 0,
+            "isPermanent": True,
+            "deviceId": device_id,
+            "appId": "org.onosproject.sdnapp",
+            "treatment": {
+                "instructions": [
+                    {"type": "DROP"}
+                ]
+            },
+            "selector": {
+                "criteria": []
+            }
+        }
+        return flow_rule
 
 
 class FlowManager:
@@ -505,6 +593,77 @@ class FlowManager:
             logger.error(f"清除设备流表失败: {e}")
             return False
     
+    def install_arp_reactive_flows(self) -> bool:
+        """
+        安装ARP反应式流表，将ARP数据包发送到控制器
+        
+        Returns:
+            bool: 安装是否成功
+        """
+        try:
+            for device_id in self.topology_manager.devices.keys():
+                # 创建ARP反应式流表规则
+                flow_rule = self.flow_builder.create_arp_reactive_flow(device_id)
+                
+                # 安装流表
+                if not self.controller.install_flow_rule(device_id, flow_rule):
+                    logger.error(f"设备 {device_id} ARP反应式流表安装失败")
+                    return False
+            
+            logger.info("ARP反应式流表安装完成")
+            return True
+            
+        except Exception as e:
+            logger.error(f"安装ARP反应式流表失败: {e}")
+            return False
+    
+    def install_broadcast_reactive_flows(self) -> bool:
+        """
+        安装广播反应式流表，将广播数据包发送到控制器
+        
+        Returns:
+            bool: 安装是否成功
+        """
+        try:
+            for device_id in self.topology_manager.devices.keys():
+                # 创建广播反应式流表规则
+                flow_rule = self.flow_builder.create_broadcast_reactive_flow(device_id)
+                
+                # 安装流表
+                if not self.controller.install_flow_rule(device_id, flow_rule):
+                    logger.error(f"设备 {device_id} 广播反应式流表安装失败")
+                    return False
+            
+            logger.info("广播反应式流表安装完成")
+            return True
+            
+        except Exception as e:
+            logger.error(f"安装广播反应式流表失败: {e}")
+            return False
+    
+    def clear_all_flows(self) -> bool:
+        """
+        清除所有设备的流表
+        
+        Returns:
+            bool: 清除是否成功
+        """
+        try:
+            success = True
+            for device_id in self.topology_manager.devices.keys():
+                if not self.clear_device_flows(device_id):
+                    logger.error(f"清除设备 {device_id} 流表失败")
+                    success = False
+            
+            if success:
+                logger.info("所有设备流表清除完成")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"清除所有设备流表失败: {e}")
+            return False
+    
     def get_flow_statistics(self) -> Dict[str, Any]:
         """
         获取流表统计信息
@@ -680,6 +839,24 @@ class NetworkCommunicator:
         except Exception as e:
             logger.error(f"检查连通性失败: {e}")
             return {'connected_hosts': 0, 'total_hosts': 0}
+    
+    def clear_all_flows(self) -> bool:
+        """
+        清除所有设备的流表
+        
+        Returns:
+            bool: 清除是否成功
+        """
+        try:
+            success = self.flow_manager.clear_all_flows()
+            if success:
+                logger.info("所有设备流表已清除")
+            else:
+                logger.error("清除所有设备流表失败")
+            return success
+        except Exception as e:
+            logger.error(f"清除所有流表失败: {e}")
+            return False
 
 
 if __name__ == "__main__":

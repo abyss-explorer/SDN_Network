@@ -31,6 +31,14 @@
 │  ┌──────────────┐  ┌─────────────────┐  │
 │  │ FlowManager  │  │ TopologyManager │  │
 │  └──────────────┘  └─────────────────┘  │
+│  ┌──────────────┐                      │
+│  │ IntentMana-  │                      │
+│  │ ger         │                      │
+│  └──────────────┘                      │
+│  ┌──────────────┐                      │
+│  │ 监控与拓扑    │                      │
+│  │ 变化处理      │                      │
+│  └──────────────┘                      │
 └─────────────────────────────────────────┘
                     ↕ REST API
 ┌─────────────────────────────────────────┐
@@ -38,6 +46,9 @@
 │  ┌──────────┐ ┌──────────┐ ┌─────────┐ │
 │  │ 拓扑发现 │ │ 路由服务 │ │ 流表管理│ │
 │  └──────────┘ └──────────┘ └─────────┘ │
+│              ┌─────────────────┐       │
+│              │ Intent管理      │       │
+│              └─────────────────┘       │
 └─────────────────────────────────────────┘
                     ↕ OpenFlow 1.3
 ┌─────────────────────────────────────────┐
@@ -173,18 +184,52 @@ flow_rule = {
 - `enable_host_communication(src_mac, dst_mac)`: 启用主机间通信
 - `enable_all_host_communication()`: 启用所有主机通信
 
-### 4. 主应用程序模块 (main_app.py)
+### 4. Intent管理模块 (intent_manager.py)
+
+#### IntentManager类
+负责在ONOS中创建和管理Intent，用于在UI中突显监控路径。
+
+**关键方法**：
+- `create_host_intent(src_mac, dst_mac)`: 创建主机间Intent（在ONOS UI中显示为突显的线路）
+- `delete_host_intent(src_mac, dst_mac)`: 删除主机间Intent
+- `get_intents()`: 获取所有Intent
+- `get_host_intents()`: 获取所有Host Intent
+- `delete_all_host_intents()`: 删除所有Host Intent
+
+**Intent数据格式**：
+```python
+intent_data = {
+    "type": "HostToHostIntent",
+    "appId": "org.onosproject.core",
+    "one": f"{src_mac}/None",
+    "two": f"{dst_mac}/None",
+    "priority": 100
+}
+```
+
+### 5. 主应用程序模块 (main_app.py)
 
 #### SDNControllerApp类
-集成所有组件并管理网络生命周期。
+集成所有组件并管理网络生命周期，新增实时监控功能。
 
 **关键方法**：
 - `initialize_components()`: 初始化所有组件
 - `setup_network_communication()`: 设置网络通信
 - `run_mininet_simulation()`: 运行Mininet仿真
 - `start_cli()`: 启动命令行接口
+- `add_monitored_pair(src_mac, dst_mac)`: 添加监控节点对
+- `remove_monitored_pair(src_mac, dst_mac)`: 移除监控节点对
+- `start_monitoring()`: 启动监控线程
+- `_monitoring_loop()`: 监控循环
+- `_handle_topology_change()`: 处理拓扑变化
 
-### 5. 拓扑配置模块 (topology.py)
+**监控功能**：
+- 实时监控拓扑变化
+- 自动检测网络连通性变化
+- 拓扑变化时自动重新计算路径并下发流表
+- 通过Intent在ONOS UI中突显监控路径
+
+### 6. 拓扑配置模块 (topology.py)
 
 支持多种网络拓扑类型：
 - **LinearTopology**: 线性拓扑（默认4交换机）
@@ -195,31 +240,33 @@ flow_rule = {
 
 ```
 SDN_network/
-├── controller_client.py      # ONOS控制器客户端和拓扑管理
-├── path_calculator.py         # Dijkstra路径计算算法
-├── flow_manager.py            # 流表规则构建和管理
-├── main_app.py                # 主应用程序和CLI
-├── topology.py                # Mininet拓扑配置
-├── requirements.txt           # Python依赖列表
-├── quick_start.sh             # 快速启动脚本
-├── run.sh                     # 完整启动脚本
-├── verify_env.sh              # 环境验证脚本
+├── controller_client.py        # ONOS控制器客户端和拓扑管理
+├── path_calculator.py          # Dijkstra路径计算算法
+├── flow_manager.py             # 流表规则构建和管理
+├── intent_manager.py           # Intent管理模块，用于在ONOS UI中突显路径
+├── main_app.py                 # 主应用程序和CLI
+├── topology.py                 # Mininet拓扑配置
+├── test_utils.py               # 测试工具模块
+├── requirements.txt            # Python依赖列表
+├── quick_start.sh              # 快速启动脚本
+├── run.sh                      # 完整启动脚本
+├── verify_env.sh               # 环境验证脚本
 │
-├── test_onos.py               # ONOS连接测试
-├── simple_test.py             # 简化功能测试
-├── test_communication.py      # 通信功能测试
-├── integration_test.py        # 集成测试
-├── debug_flow.py              # 流表调试工具
-├── debug_graph.py             # 图结构调试工具
+├── test_onos.py                # ONOS连接测试
+├── simple_test.py              # 简化功能测试
+├── test_communication.py       # 通信功能测试
+├── integration_test.py         # 集成测试
+├── debug_flow.py               # 流表调试工具
+├── debug_graph.py              # 图结构调试工具
 │
-├── IFLOW.md                   # 项目上下文文件（本文件）
-├── README.md                  # 项目说明文档
-├── reqiurements_documents.md  # 需求文档
-├── 修复总结.md                 # 问题修复总结
-├── sdn_network.log            # 应用日志文件
+├── IFLOW.md                    # 项目上下文文件（本文件）
+├── README.md                   # 项目说明文档
+├── reqiurements_documents.md   # 需求文档
+├── 修复总结.md                  # 问题修复总结
+├── sdn_network.log             # 应用日志文件
 │
-├── venv/                      # Python虚拟环境
-└── __pycache__/               # Python缓存文件
+├── venv/                       # Python虚拟环境
+└── __pycache__/                # Python缓存文件
 ```
 
 ## 环境要求和设置
@@ -391,7 +438,42 @@ curl -u onos:rocks http://localhost:8181/onos/v1/links | python3 -m json.tool
 
 # 流表信息
 curl -u onos:rocks http://localhost:8181/onos/v1/flows/of:0000000000000001 | python3 -m json.tool
+
+# Intent信息
+curl -u onos:rocks http://localhost:8181/onos/v1/intents | python3 -m json.tool
 ```
+
+## 命令行接口功能
+
+### SDN应用CLI命令
+
+启动SDN应用后，可以使用以下命令：
+
+```bash
+sdn> status                    # 显示网络状态
+sdn> topology                  # 显示拓扑信息
+sdn> hosts                     # 显示主机列表
+sdn> flows                     # 显示流表统计
+sdn> path <src> <dst>          # 计算主机间路径
+sdn> enable <src> <dst>        # 启用主机间通信
+sdn> enable-all                # 启用所有主机通信
+sdn> ping <src> <dst>          # 测试主机连通性
+sdn> monitor <src> <dst>       # 添加监控节点对
+sdn> unmonitor <src> <dst>     # 移除监控节点对
+sdn> show-monitors             # 显示监控的节点对
+sdn> start-monitoring          # 启动监控
+sdn> stop-monitoring           # 停止监控
+sdn> start-mininet             # 启动Mininet拓扑 (需要sudo权限)
+sdn> help                      # 显示帮助信息
+sdn> quit/exit                 # 退出程序
+```
+
+**监控功能**：
+- `monitor`命令：添加要监控的节点对，会在ONOS UI中突显路径
+- `unmonitor`命令：移除监控的节点对
+- `start-monitoring`命令：启动网络监控，实时检测拓扑变化
+- `stop-monitoring`命令：停止网络监控
+- `show-monitors`命令：显示当前监控的节点对
 
 ## 开发约定和最佳实践
 
@@ -547,10 +629,11 @@ ps aux | grep python
 ## 已知问题和限制
 
 1. **网络规模**：当前仅测试了小规模网络（4交换机8主机）
-2. **拓扑动态性**：不支持运行时拓扑变化的自动适应
-3. **故障恢复**：未实现链路故障的自动恢复机制
+2. **拓扑动态性**：支持运行时拓扑变化的自动适应（通过监控功能）
+3. **故障恢复**：实现了链路故障的部分自动恢复机制（通过拓扑变化处理）
 4. **负载均衡**：未实现多路径负载均衡
 5. **QoS支持**：未实现服务质量保证机制
+6. **Intent管理**：Intent用于UI突显，但未用于实际流量控制
 
 ## 扩展性考虑
 
@@ -583,6 +666,8 @@ ps aux | grep python
 - [x] 2025-12-11: 修复路径计算问题
 - [x] 2025-12-11: 修复流表安装问题
 - [x] 2025-12-11: 完成基础测试
+- [x] 2025-12-16: 添加Intent管理功能，支持在ONOS UI中突显路径
+- [x] 2025-12-16: 添加实时监控和拓扑变化处理功能
 - [ ] 待定: 实现故障恢复机制
 - [ ] 待定: 实现负载均衡
 - [ ] 待定: 性能优化和压力测试
